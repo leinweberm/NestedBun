@@ -1,4 +1,4 @@
-type THttpMethod = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'CONNECT' | 'OPTIONS' | 'TRACE' | 'PATCH';
+export type THttpMethod = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'CONNECT' | 'OPTIONS' | 'TRACE' | 'PATCH';
 type TRouteHandler = () => Response | Promise<Response>;
 type TRouterOpts = { tag?: string; };
 
@@ -58,7 +58,6 @@ export class Router {
 			}
 		}
 
-		console.log('node', node);
 		node.handler = handler;
 	}
 

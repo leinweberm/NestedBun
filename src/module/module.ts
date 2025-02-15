@@ -49,15 +49,3 @@ export function AppModule(opts: ModuleOpts) {
 		};
 	};
 }
-
-// TEST
-@Module({
-	providers: ['provider1', 'provider2'],
-	controllers: ['controler1'],
-	imports: [],
-	exports: ['export1', 'export2']
-})
-class TestModule {}
-
-const myTestModule = new TestModule();
-console.log('myTestModule', myTestModule);

@@ -1,4 +1,5 @@
-import {expect, test} from 'bun:test';
+// @ts-nocheck
+import { expect, test } from 'bun:test';
 import { Router } from '../src/router';
 
 let router = null;
@@ -55,7 +56,7 @@ test('find routes', () => {
 	expect(route.params).toBeDefined();
 	let routeResponse = route.handler();
 	expect(routeResponse).toBe(route1.returnValue);
-	
+
 	// ROUTE 2
 	route = router.findRoute(route2.method, '/test/leinweber');
 	expect(route).not.toBeNull();
