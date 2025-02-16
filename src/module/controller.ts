@@ -1,4 +1,5 @@
 import type { THttpMethod } from "../router";
+import { createModuleMemberName } from "./utils/createClassName";
 import { validateUrlString } from "../validators/string";
 
 function createRouteDecorator(method: THttpMethod, path: string) {
@@ -17,7 +18,7 @@ export interface IController {
 	url: string;
 }
 
-type TProcessedController = {
+export type TProcessedController = {
 	url: string;
 	method: THttpMethod;
 	handler: Function;
@@ -26,7 +27,7 @@ type TProcessedController = {
 
 export function Controller(url: string) {
 	return function <T extends new (...args: any[]) => {}>(BaseClass: T) {
-		class Extended extends BaseClass implements IController {
+		class ControllerClass extends BaseClass implements IController {
 			url: string;
 
 			constructor(...args: any[]) {
@@ -38,13 +39,15 @@ export function Controller(url: string) {
 		const methods = Object.getOwnPropertyNames(BaseClass.prototype);
 		for (let i = 0, length = methods.length; i < length; i++) {
 			Object.defineProperty(
-				Extended.prototype,
+				ControllerClass.prototype,
 				methods[i],
 				Object.getOwnPropertyDescriptor(BaseClass.prototype, methods[i])!
 			);
 		}
 
-		return Extended;
+		createModuleMemberName(ControllerClass, BaseClass);
+
+		return ControllerClass;
 	}
 }
 
