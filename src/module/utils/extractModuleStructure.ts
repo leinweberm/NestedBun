@@ -1,26 +1,26 @@
 import { type IModule } from "../module";
 import { validateStructureName } from "./validateModule";
 import { ModuleStructureMap } from "../module.dto";
+import { orderProviders } from "../../factory/hierarchyOrder";
+import type { IProvider } from "../provider";
 
-type TModuleBody = {
+export type TModuleBody = {
 	imports: Set<string>;
 	controllers: Set<string>;
 	providers: Set<string>;
 	exports: Set<string>;
 };
 
+export type TClassesList = Map<string, IProvider>;
+
 type TModuleStructure = {
 	name: string;
 	structure: TModuleBody;
 };
 
-type TModuleBodyExtended = TModuleBody & {
-	dependencies: string[];
-}
+export type TAppModules = Map<string, TModuleBody>;
 
-type TAppModules = Map<string, TModuleBodyExtended>;
-
-const getAndVerifyModulMetadata = (module: IModule): TModuleStructure => {
+const getAndVerifyModulMetadata = (module: IModule, classes: TClassesList): TModuleStructure => {
 	const moduleData: TModuleStructure = {
 		name: module.constructor.name,
 		structure: {
@@ -42,61 +42,52 @@ const getAndVerifyModulMetadata = (module: IModule): TModuleStructure => {
 		const name = module.imports[i].name;
 		validateStructureName(moduleData.name, name, ModuleStructureMap.imports);
 		moduleData.structure.imports.add(name);
+		(!classes.has(name)) && classes.set(name, module.imports[i]);
 	}
 
 	for (let i = 0, length = module.controllers.length; i < length; i++) {
 		const name = module.controllers[i].name;
 		validateStructureName(moduleData.name, name, ModuleStructureMap.controllers);
 		moduleData.structure.controllers.add(name);
+		(!classes.has(name)) && classes.set(name, module.controllers[i]);
 	}
 
 	for (let i = 0, length = module.providers.length; i < length; i++) {
 		const name = module.providers[i].name;
 		validateStructureName(moduleData.name, name, ModuleStructureMap.providers);
 		moduleData.structure.providers.add(name);
+		(!classes.has(name)) && classes.set(name, module.providers[i]);
 	}
 
 	for (let i = 0, length = module.exports.length; i < length; i++) {
 		const name = module.exports[i].name;
 		validateStructureName(moduleData.name, name, ModuleStructureMap.exports);
 		moduleData.structure.exports.add(name);
+		(!classes.has(name)) && classes.set(name, module.exports[i]);
 	}
 
 	return moduleData;
 };
 
-export const orderAppModules = (appModules: TAppModules) => {
+export const orderModules = (appModules: TAppModules): TAppModules => {
 	const graph: Map<string, string[]> = new Map();
 	const inDegree: Map<string, number> = new Map();
 	const result: string[] = [];
 
-	const mapIterator = appModules.entries();
-	for (let i = 0; i < appModules.size; i++) {
-		const entry = mapIterator.next().value;
-		if (!entry) continue;
-		const [moduleName, value]: [string, TModuleBodyExtended] = entry;
-
+	for (const [moduleName, value] of appModules.entries()) {
 		inDegree.set(moduleName, 0);
 
 		const depIterator = value.imports.entries();
 		for (const entry of depIterator) {
-			if (!graph.has(entry[0])) {
-				graph.set(entry[0], []);
-			}
+			if (!graph.has(entry[0])) graph.set(entry[0], []);
 			graph.get(entry[0])?.push(moduleName);
 			inDegree.set(moduleName, (inDegree.get(moduleName) || 0) + 1);
 		}
 	}
 
 	const queue: string[] = [];
-	const inDeegreIterator = inDegree.entries();
-	for (let i = 0; i < inDegree.size; i++) {
-		const entry = inDeegreIterator.next().value;
-		if (!entry) continue;
-		const [moduleName, depCount] = entry;
-		if (depCount === 0) {
-			queue.push(moduleName);
-		}
+	for (const [moduleName, depCount] of inDegree.entries()) {
+		if (depCount === 0) queue.push(moduleName);
 	}
 
 	while (queue.length > 0) {
@@ -117,20 +108,31 @@ export const orderAppModules = (appModules: TAppModules) => {
 		throw new Error('FactoryError: Circular modules dependency detected');
 	}
 
-	return result;
+	const orderedAppModules: TAppModules = new Map();
+
+	for (let i = 0, length = result.length; i < length; i++) {
+		const module = appModules.get(result[i]);
+		if (module) {
+			orderedAppModules.set(result[i], module);
+		} else {
+			throw new Error(`FactoryError: unable to sort app modules, invalid module ${result[i]}`);
+		}
+	}
+
+	return orderedAppModules;
 };
 
 export const extractModuleStructure = (module: IModule) => {
-	const appModules: TAppModules = new Map();
+	const unorderedAppModules: TAppModules = new Map();
+	const appClasses: TClassesList = new Map();
+
 	for (const importedModule of module.imports) {
-		const moduleMetadata = getAndVerifyModulMetadata(importedModule);
-		appModules.set(moduleMetadata.name, {
-			...moduleMetadata.structure,
-			dependencies: [...moduleMetadata.structure.imports]
-		});
+		const moduleMetadata = getAndVerifyModulMetadata(importedModule, appClasses);
+		unorderedAppModules.set(moduleMetadata.name, { ...moduleMetadata.structure });
 	}
 
+	const appModules = orderModules(unorderedAppModules);
 	console.log('appModules', appModules);
-	const appModulesOrder = orderAppModules(appModules);
-	console.log('appModulesOrder', appModulesOrder);
+	console.log('appClasses', appClasses);
+	orderProviders(appModules, appClasses);
 };

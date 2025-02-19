@@ -1,17 +1,35 @@
 import { createModuleMemberName } from "./utils/createClassName";
+import { ModuleClassNames } from "./module.dto";
 
-interface IProvider {
-	forwardRef: boolean;
+export interface IProvider {
+	injected?: Set<string>;
+}
+
+export function Provided(ProviderClassName: string) {
+	return function (target: any, _property: undefined, _propertyIndex: number) {
+		if (!target.injectedProviders) {
+			Object.defineProperty(
+				target,
+				'injected',
+				{
+					value: new Set(),
+					writable: true,
+					enumerable: true,
+					configurable: true
+				}
+			);
+		}
+
+		target.injected.add(`${ModuleClassNames.PROVIDER}_${ProviderClassName}`);
+	}
 }
 
 export function Provider() {
 	return function <T extends new (...args: any[]) => {}>(BaseClass: T) {
 		class ProviderClass extends BaseClass implements IProvider {
-			forwardRef: boolean;
 
 			constructor(...args: any[]) {
 				super(...args);
-				this.forwardRef = false;
 			}
 		}
 
@@ -27,23 +45,5 @@ export function Provider() {
 		createModuleMemberName(ProviderClass, BaseClass);
 
 		return ProviderClass;
-	}
-}
-
-class TestInjectedProvider {
-	getRandom(): number {
-		return Math.ceil(Math.random() * 100);
-	}
-}
-
-@Provider()
-export class TestProvider {
-	constructor(
-		injected: TestInjectedProvider
-	) {}
-
-	addRandom(num: number): number {
-		return num + 5;
-		// return num + this.injected.getRandom();
 	}
 }

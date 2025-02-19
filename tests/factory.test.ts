@@ -1,7 +1,7 @@
 import { test, expect } from 'bun:test';
-import { type IModule, Module, AppModule } from '../src/module/module';
+import { Module, AppModule } from '../src/module/module';
 import { Controller } from '../src/module/controller';
-import { Provider } from '../src/module/provider';
+import { Provided, Provider } from '../src/module/provider';
 import { createApp } from '../src/factory';
 
 test.only('factory - create', () => {
@@ -16,8 +16,8 @@ test.only('factory - create', () => {
 	@Controller('/users')
 	class ControllerA {
 		constructor() { }
-		getData(): string {
-			return 'getDataTest';
+		addFive(input: number): number {
+			return input + 5;
 		}
 	}
 
@@ -30,26 +30,54 @@ test.only('factory - create', () => {
 	class ModuleA { }
 
 	@Provider()
-	class ProviderB {
-		constructor() { }
-		addOrganization(): true {
-			return true;
+	class ProviderB1 {
+		constructor() {}
+
+		minusFive(input: number) {
+			return input - 5;
+		}
+	}
+
+	@Provider()
+	class ProviderB2 {
+		constructor(
+			@Provided('ProviderB1') private readonly providerB1: ProviderB1,
+			@Provided('ProviderA') private readonly providerA: ProviderA
+		) { }
+		addNumber(input: number): number {
+			return this.providerA.addRandom(input);
+		}
+
+		substractNumber() {
+			return this.providerB1.minusFive(15);
 		}
 	}
 
 	@Controller('/organizations')
 	class ControllerB {
-		constructor() { }
+		constructor(
+			@Provided('ProviderA') private readonly providerA: ProviderA,
+			@Provided('ProviderB1') private readonly providerB1: ProviderB1,
+			@Provided('ProviderB2') private readonly providerB2: ProviderB2
+		) { }
 		add() {
-			return true;
+			return this.providerB2.addNumber(5);
+		}
+
+		substract() {
+			return this.providerB1.minusFive(15);
+		}
+
+		testProviderA() {
+			return this.providerA.addRandom(5);
 		}
 	}
 
 	@Module({
 		imports: [ModuleA],
 		controllers: [ControllerB],
-		providers: [ProviderB],
-		exports: [ProviderB]
+		providers: [ProviderB2, ProviderB1],
+		exports: [ProviderB2]
 
 	})
 	class ModuleB { }
@@ -59,5 +87,5 @@ test.only('factory - create', () => {
 	})
 	class App { }
 
-	createApp(App);
+	createApp(new App());
 });
